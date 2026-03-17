@@ -57,16 +57,17 @@ local function getAliveCharacterParts(character: Model): (Humanoid?, BasePart?)
 	return humanoid, rootPart
 end
 
-local function canAttack(player: Player): boolean
-	local now = os.clock()
+local function isOnCooldown(player: Player): boolean
 	local lastAttackTime = playerCooldowns[player]
-
-	if lastAttackTime ~= nil and now - lastAttackTime < CombatConfig.BASIC_ATTACK_COOLDOWN then
+	if lastAttackTime == nil then
 		return false
 	end
 
-	playerCooldowns[player] = now
-	return true
+	return os.clock() - lastAttackTime < CombatConfig.BASIC_ATTACK_COOLDOWN
+end
+
+local function markAttackUsed(player: Player): ()
+	playerCooldowns[player] = os.clock()
 end
 
 local function findBestTarget(player: Player): Humanoid?
@@ -126,7 +127,7 @@ local function findBestTarget(player: Player): Humanoid?
 end
 
 function CombatService.HandleBasicAttack(player: Player): ()
-	if not canAttack(player) then
+	if isOnCooldown(player) then
 		return
 	end
 
@@ -144,6 +145,8 @@ function CombatService.HandleBasicAttack(player: Player): ()
 	if targetHumanoid == nil then
 		return
 	end
+
+	markAttackUsed(player)
 
 	local stats = PlayerDataService.GetCurrentStats(player)
 	local damage = math.max(CombatConfig.BASIC_ATTACK_DAMAGE, stats.Attack)
