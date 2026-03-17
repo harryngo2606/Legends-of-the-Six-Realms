@@ -9,14 +9,20 @@ local Modules = Shared:WaitForChild("Modules")
 
 local CombatConfig = require(Modules:WaitForChild("CombatConfig"))
 local PlayerDataService = require(script.Parent:WaitForChild("PlayerDataService"))
+local CharacterService = require(script.Parent:WaitForChild("CharacterService"))
 
 local CombatService = {}
 
 local REMOTES_FOLDER_NAME = "GameRemotes"
 local BASIC_ATTACK_REMOTE_NAME = "RequestBasicAttack"
-local TEST_TARGETS_FOLDER_NAME = "TestTargets"
+local MONSTERS_FOLDER_NAME = "Monsters"
+local EXP_REWARD_ATTRIBUTE_NAME = "ExpReward"
+local DEFAULT_EXP_REWARD = 10
 
 local playerCooldowns: {[Player]: number} = {}
+local lastHitByHumanoid: {[Humanoid]: Player} = {}
+local deathConnections: {[Humanoid]: RBXScriptConnection} = {}
+
 local basicAttackRemote: RemoteEvent? = nil
 
 local function getOrCreateFolder(parent: Instance, name: string): Folder
@@ -70,6 +76,60 @@ local function markAttackUsed(player: Player): ()
 	playerCooldowns[player] = os.clock()
 end
 
+local function getMonsterExpReward(monsterModel: Model): number
+	local value = monsterModel:GetAttribute(EXP_REWARD_ATTRIBUTE_NAME)
+
+	if typeof(value) == "number" and value > 0 then
+		return value
+	end
+
+	return DEFAULT_EXP_REWARD
+end
+
+local function cleanupMonsterTracking(humanoid: Humanoid): ()
+	local connection = deathConnections[humanoid]
+	if connection ~= nil then
+		connection:Disconnect()
+		deathConnections[humanoid] = nil
+	end
+
+	lastHitByHumanoid[humanoid] = nil
+end
+
+local function rewardKill(player: Player, monsterModel: Model): ()
+	local profileBefore = PlayerDataService.GetOrCreateProfile(player)
+	local previousLevel = profileBefore.Level
+
+	local expReward = getMonsterExpReward(monsterModel)
+	PlayerDataService.AddExp(player, expReward)
+
+	CharacterService.SyncPlayerState(player)
+	CharacterService.RefreshLeaderstats(player)
+
+	local profileAfter = PlayerDataService.GetOrCreateProfile(player)
+	if profileAfter.Level > previousLevel then
+		local character = player.Character
+		if character ~= nil then
+			CharacterService.ApplyStatsToCharacter(player, character)
+		end
+	end
+end
+
+local function bindMonsterDeath(monsterModel: Model, humanoid: Humanoid): ()
+	if deathConnections[humanoid] ~= nil then
+		return
+	end
+
+	deathConnections[humanoid] = humanoid.Died:Connect(function()
+		local killer = lastHitByHumanoid[humanoid]
+		if killer ~= nil then
+			rewardKill(killer, monsterModel)
+		end
+
+		cleanupMonsterTracking(humanoid)
+	end)
+end
+
 local function findBestTarget(player: Player): Humanoid?
 	local character = player.Character
 	if character == nil then
@@ -81,15 +141,15 @@ local function findBestTarget(player: Player): Humanoid?
 		return nil
 	end
 
-	local targetsFolder = Workspace:FindFirstChild(TEST_TARGETS_FOLDER_NAME)
-	if targetsFolder == nil or not targetsFolder:IsA("Folder") then
+	local monstersFolder = Workspace:FindFirstChild(MONSTERS_FOLDER_NAME)
+	if monstersFolder == nil or not monstersFolder:IsA("Folder") then
 		return nil
 	end
 
 	local bestHumanoid: Humanoid? = nil
 	local bestDistance = math.huge
 
-	for _, candidate in targetsFolder:GetChildren() do
+	for _, candidate in monstersFolder:GetChildren() do
 		if not candidate:IsA("Model") then
 			continue
 		end
@@ -120,6 +180,7 @@ local function findBestTarget(player: Player): Humanoid?
 		if distance < bestDistance then
 			bestDistance = distance
 			bestHumanoid = targetHumanoid
+			bindMonsterDeath(candidate, targetHumanoid)
 		end
 	end
 
@@ -147,6 +208,7 @@ function CombatService.HandleBasicAttack(player: Player): ()
 	end
 
 	markAttackUsed(player)
+	lastHitByHumanoid[targetHumanoid] = player
 
 	local stats = PlayerDataService.GetCurrentStats(player)
 	local damage = math.max(CombatConfig.BASIC_ATTACK_DAMAGE, stats.Attack)
@@ -158,7 +220,7 @@ function CombatService.Init(): ()
 	local remotesFolder = getOrCreateFolder(ReplicatedStorage, REMOTES_FOLDER_NAME)
 	basicAttackRemote = getOrCreateRemoteEvent(remotesFolder, BASIC_ATTACK_REMOTE_NAME)
 
-	getOrCreateFolder(Workspace, TEST_TARGETS_FOLDER_NAME)
+	getOrCreateFolder(Workspace, MONSTERS_FOLDER_NAME)
 
 	basicAttackRemote.OnServerEvent:Connect(function(player: Player)
 		CombatService.HandleBasicAttack(player)
@@ -166,6 +228,12 @@ function CombatService.Init(): ()
 
 	Players.PlayerRemoving:Connect(function(player: Player)
 		playerCooldowns[player] = nil
+
+		for humanoid, lastPlayer in lastHitByHumanoid do
+			if lastPlayer == player then
+				lastHitByHumanoid[humanoid] = nil
+			end
+		end
 	end)
 end
 

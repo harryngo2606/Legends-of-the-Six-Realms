@@ -57,7 +57,7 @@ local function loadTracks(character: Model): ()
 
 	local ids: AnimationSet = AnimationConfig.IDS
 
-	if ids.TestAction ~= "" and ids.TestAction ~= "rbxassetid://PUT_YOUR_ANIMATION_ID_HERE" then
+	if ids.TestAction ~= "" and ids.TestAction ~= "rbxassetid://9863351669" then
 		local animation = createAnimation(ids.TestAction)
 		currentTracks.TestAction = animator:LoadAnimation(animation)
 		currentTracks.TestAction.Priority = Enum.AnimationPriority.Action

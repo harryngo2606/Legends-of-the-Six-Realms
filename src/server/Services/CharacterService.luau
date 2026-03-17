@@ -92,23 +92,29 @@ function CharacterService.ApplyStatsToCharacter(player: Player, character: Model
 
 	local statsFolder = getOrCreateStatsFolder(character)
 	setNumberValue(statsFolder, "MaxHP", stats.MaxHP)
+	setNumberValue(statsFolder, "WalkSpeed", stats.WalkSpeed)
 	setNumberValue(statsFolder, "Attack", stats.Attack)
 	setNumberValue(statsFolder, "Defense", stats.Defense)
+end
+
+function CharacterService.RefreshPlayer(player: Player): ()
+	CharacterService.RefreshLeaderstats(player)
+	CharacterService.SyncPlayerState(player)
+
+	local character = player.Character
+	if character ~= nil then
+		CharacterService.ApplyStatsToCharacter(player, character)
+	end
 end
 
 function CharacterService.SetupPlayer(player: Player): ()
 	PlayerDataService.GetOrCreateProfile(player)
 	CharacterService.CreateLeaderstats(player)
-	CharacterService.RefreshLeaderstats(player)
-	CharacterService.SyncPlayerState(player)
+	CharacterService.RefreshPlayer(player)
 
 	player.CharacterAdded:Connect(function(character: Model)
 		CharacterService.ApplyStatsToCharacter(player, character)
 	end)
-
-	if player.Character then
-		CharacterService.ApplyStatsToCharacter(player, player.Character)
-	end
 end
 
 function CharacterService.Init(): ()

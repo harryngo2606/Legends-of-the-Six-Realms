@@ -30,6 +30,20 @@ local function deepCopy<T>(value: T): T
 	return copy
 end
 
+local function syncProfileToPlayer(player: Player, profile: PlayerData): ()
+	player:SetAttribute("Level", profile.Level)
+	player:SetAttribute("Exp", profile.Exp)
+	player:SetAttribute("ExpNeeded", StatsConfig.GetExpNeeded(profile.Level))
+
+	local leaderstats = player:FindFirstChild("leaderstats")
+	if leaderstats ~= nil then
+		local levelValue = leaderstats:FindFirstChild("Level")
+		if levelValue ~= nil and levelValue:IsA("IntValue") then
+			levelValue.Value = profile.Level
+		end
+	end
+end
+
 function PlayerDataService.Init(): ()
 	Players.PlayerRemoving:Connect(function(player: Player)
 		profiles[player] = nil
@@ -39,6 +53,7 @@ end
 function PlayerDataService.CreateProfile(player: Player): PlayerData
 	local profile = deepCopy(StatsConfig.DEFAULT_DATA)
 	profiles[player] = profile
+	syncProfileToPlayer(player, profile)
 	return profile
 end
 
@@ -61,6 +76,10 @@ function PlayerDataService.GetCurrentStats(player: Player): BaseStats
 end
 
 function PlayerDataService.AddExp(player: Player, amount: number): ()
+	if amount <= 0 then
+		return
+	end
+
 	local profile = PlayerDataService.GetOrCreateProfile(player)
 	profile.Exp += amount
 
@@ -68,6 +87,8 @@ function PlayerDataService.AddExp(player: Player, amount: number): ()
 		profile.Exp -= StatsConfig.GetExpNeeded(profile.Level)
 		profile.Level += 1
 	end
+
+	syncProfileToPlayer(player, profile)
 end
 
 return PlayerDataService

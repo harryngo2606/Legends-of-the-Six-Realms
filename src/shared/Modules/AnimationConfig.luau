@@ -7,7 +7,7 @@ export type AnimationSet = {
 }
 
 AnimationConfig.IDS = {
-	TestAction = "rbxassetid://PUT_YOUR_ANIMATION_ID_HERE",
+	TestAction = "rbxassetid://9863351669",
 } :: AnimationSet
 
 return AnimationConfig
