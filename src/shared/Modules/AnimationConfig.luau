@@ -2,12 +2,8 @@
 
 local AnimationConfig = {}
 
-export type AnimationSet = {
-	TestAction: string,
-}
-
 AnimationConfig.IDS = {
-	TestAction = "rbxassetid://9863351669",
-} :: AnimationSet
+	RightPunch = "rbxassetid://108339711479135",
+}
 
 return AnimationConfig

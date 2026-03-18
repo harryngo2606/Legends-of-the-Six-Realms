@@ -1,51 +1,26 @@
 --!strict
 
 local Players = game:GetService("Players")
-local UserInputService = game:GetService("UserInputService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local UserInputService = game:GetService("UserInputService")
 
 local localPlayer = Players.LocalPlayer
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Modules = Shared:WaitForChild("Modules")
 local AnimationConfig = require(Modules:WaitForChild("AnimationConfig"))
 
-type AnimationSet = AnimationConfig.AnimationSet
-
-type LoadedTracks = {
-	TestAction: AnimationTrack?,
-}
-
 local AnimationController = {}
 
-local currentTracks: LoadedTracks = {
-	TestAction = nil,
-}
+local currentTrack: AnimationTrack? = nil
+local currentAnimator: Animator? = nil
 
-local inputConnection: RBXScriptConnection? = nil
-
-local function createAnimation(animationId: string): Animation
-	local animation = Instance.new("Animation")
-	animation.AnimationId = animationId
-	return animation
-end
-
-local function stopCurrentTracks(): ()
-	for _, track in currentTracks do
-		if track ~= nil then
-			track:Stop(0.1)
-		end
-	end
-
-	currentTracks = {
-		TestAction = nil,
-	}
-end
-
-local function loadTracks(character: Model): ()
-	stopCurrentTracks()
+local function loadRightPunchTrack(character: Model)
+	currentTrack = nil
+	currentAnimator = nil
 
 	local humanoid = character:FindFirstChildOfClass("Humanoid")
 	if humanoid == nil then
+		warn("AnimationController: Humanoid not found")
 		return
 	end
 
@@ -55,51 +30,75 @@ local function loadTracks(character: Model): ()
 		animator.Parent = humanoid
 	end
 
-	local ids: AnimationSet = AnimationConfig.IDS
+	currentAnimator = animator
 
-	if ids.TestAction ~= "" and ids.TestAction ~= "rbxassetid://9863351669" then
-		local animation = createAnimation(ids.TestAction)
-		currentTracks.TestAction = animator:LoadAnimation(animation)
-		currentTracks.TestAction.Priority = Enum.AnimationPriority.Action
-	end
-end
-
-function AnimationController.PlayTestAction(): ()
-	local track = currentTracks.TestAction
-	if track == nil then
+	local animationId = AnimationConfig.IDS.RightPunch
+	if type(animationId) ~= "string" or animationId == "" then
+		warn("AnimationController: RightPunch animation id missing")
 		return
 	end
 
-	track:Play(0.1, 1, 1)
-end
+	local animation = Instance.new("Animation")
+	animation.Name = "RightPunch"
+	animation.AnimationId = animationId
 
-function AnimationController.BindCharacter(character: Model): ()
-	loadTracks(character)
-end
+	local ok, trackOrError = pcall(function()
+		return animator:LoadAnimation(animation)
+	end)
 
-function AnimationController.Init(): ()
-	if inputConnection ~= nil then
-		inputConnection:Disconnect()
-		inputConnection = nil
+	if not ok then
+		warn("AnimationController: failed to load animation track:", trackOrError)
+		return
 	end
 
-	inputConnection = UserInputService.InputBegan:Connect(function(input: InputObject, gameProcessed: boolean)
+	currentTrack = trackOrError :: AnimationTrack
+	currentTrack.Priority = Enum.AnimationPriority.Action
+
+	print("AnimationController: RightPunch track loaded")
+end
+
+local function onCharacterAdded(character: Model)
+	loadRightPunchTrack(character)
+end
+
+function AnimationController.PlayRightPunch()
+	if currentTrack == nil then
+		warn("AnimationController: RightPunch track not loaded")
+		return
+	end
+
+	if currentTrack.IsPlaying then
+		currentTrack:Stop(0.05)
+	end
+
+	currentTrack:Play(0.05, 1, 1)
+	print("AnimationController: RightPunch played")
+end
+
+function AnimationController.Init()
+	print("AnimationController: Init start")
+
+	if localPlayer.Character then
+		onCharacterAdded(localPlayer.Character)
+	end
+
+	localPlayer.CharacterAdded:Connect(onCharacterAdded)
+
+	UserInputService.InputBegan:Connect(function(input: InputObject, gameProcessed: boolean)
 		if gameProcessed then
 			return
 		end
 
-		if input.UserInputType == Enum.UserInputType.Keyboard and input.KeyCode == Enum.KeyCode.Q then
-			AnimationController.PlayTestAction()
+		if input.UserInputType ~= Enum.UserInputType.Keyboard then
+			return
+		end
+
+		if input.KeyCode == Enum.KeyCode.Q then
+			AnimationController.PlayRightPunch()
 		end
 	end)
 
-	localPlayer.CharacterAdded:Connect(function(character: Model)
-		AnimationController.BindCharacter(character)
-	end)
-
-	if localPlayer.Character then
-		AnimationController.BindCharacter(localPlayer.Character)
-	end
+	print("AnimationController: Init done")
 end
 
 return AnimationController

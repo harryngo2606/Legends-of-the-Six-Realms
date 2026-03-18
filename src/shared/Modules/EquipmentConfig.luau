@@ -23,7 +23,7 @@ local weapons: {[string]: WeaponData} = {
 		Slot = "Weapon",
 		StatBonus = {
 			MaxHP = 0,
-			Attack = 5,
+			Attack = 50,
 			Defense = 0,
 			WalkSpeed = 0,
 		},
