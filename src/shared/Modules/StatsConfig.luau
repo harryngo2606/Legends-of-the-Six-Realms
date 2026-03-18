@@ -9,10 +9,15 @@ export type BaseStats = {
 	WalkSpeed: number,
 }
 
+export type EquipmentData = {
+	WeaponId: string,
+}
+
 export type PlayerData = {
 	Level: number,
 	Exp: number,
 	BaseStats: BaseStats,
+	Equipment: EquipmentData,
 }
 
 StatsConfig.DEFAULT_DATA = {
@@ -23,6 +28,9 @@ StatsConfig.DEFAULT_DATA = {
 		Attack = 10,
 		Defense = 5,
 		WalkSpeed = 16,
+	},
+	Equipment = {
+		WeaponId = "",
 	},
 } :: PlayerData
 

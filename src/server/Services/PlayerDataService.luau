@@ -6,6 +6,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Modules = Shared:WaitForChild("Modules")
 local StatsConfig = require(Modules:WaitForChild("StatsConfig"))
+local EquipmentConfig = require(Modules:WaitForChild("EquipmentConfig"))
 
 type BaseStats = StatsConfig.BaseStats
 type PlayerData = StatsConfig.PlayerData
@@ -30,10 +31,37 @@ local function deepCopy<T>(value: T): T
 	return copy
 end
 
+local function buildCurrentStats(profile: PlayerData): BaseStats
+	local levelStats = StatsConfig.GetStatsForLevel(profile.Level)
+	local weaponId = profile.Equipment.WeaponId
+
+	if weaponId == "" then
+		return levelStats
+	end
+
+	local weapon = EquipmentConfig.GetWeapon(weaponId)
+	if weapon == nil then
+		return levelStats
+	end
+
+	return {
+		MaxHP = levelStats.MaxHP + weapon.StatBonus.MaxHP,
+		Attack = levelStats.Attack + weapon.StatBonus.Attack,
+		Defense = levelStats.Defense + weapon.StatBonus.Defense,
+		WalkSpeed = levelStats.WalkSpeed + weapon.StatBonus.WalkSpeed,
+	}
+end
+
 local function syncProfileToPlayer(player: Player, profile: PlayerData): ()
 	player:SetAttribute("Level", profile.Level)
 	player:SetAttribute("Exp", profile.Exp)
 	player:SetAttribute("ExpNeeded", StatsConfig.GetExpNeeded(profile.Level))
+
+	local weaponId = profile.Equipment.WeaponId
+	local weapon = if weaponId ~= "" then EquipmentConfig.GetWeapon(weaponId) else nil
+
+	player:SetAttribute("EquippedWeaponId", weaponId)
+	player:SetAttribute("EquippedWeaponName", if weapon ~= nil then weapon.Name else "")
 
 	local leaderstats = player:FindFirstChild("leaderstats")
 	if leaderstats ~= nil then
@@ -72,7 +100,30 @@ end
 
 function PlayerDataService.GetCurrentStats(player: Player): BaseStats
 	local profile = PlayerDataService.GetOrCreateProfile(player)
-	return StatsConfig.GetStatsForLevel(profile.Level)
+	return buildCurrentStats(profile)
+end
+
+function PlayerDataService.GetEquippedWeaponId(player: Player): string
+	local profile = PlayerDataService.GetOrCreateProfile(player)
+	return profile.Equipment.WeaponId
+end
+
+function PlayerDataService.EquipWeapon(player: Player, weaponId: string): boolean
+	local weapon = EquipmentConfig.GetWeapon(weaponId)
+	if weapon == nil then
+		return false
+	end
+
+	local profile = PlayerDataService.GetOrCreateProfile(player)
+	profile.Equipment.WeaponId = weaponId
+	syncProfileToPlayer(player, profile)
+	return true
+end
+
+function PlayerDataService.UnequipWeapon(player: Player): ()
+	local profile = PlayerDataService.GetOrCreateProfile(player)
+	profile.Equipment.WeaponId = ""
+	syncProfileToPlayer(player, profile)
 end
 
 function PlayerDataService.AddExp(player: Player, amount: number): ()
