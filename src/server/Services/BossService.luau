@@ -10,6 +10,7 @@ local BossConfig = require(Modules:WaitForChild("BossConfig"))
 local BossService = {}
 
 local MONSTERS_FOLDER_NAME = "Monsters"
+local TEMPLATES_FOLDER_NAME = "Templates"
 local BOSS_ID_ATTRIBUTE_NAME = "BossId"
 local IS_BOSS_ATTRIBUTE_NAME = "IsBoss"
 local EXP_REWARD_ATTRIBUTE_NAME = "ExpReward"
@@ -33,6 +34,20 @@ local function getOrCreateFolder(parent: Instance, name: string): Folder
 	folder.Name = name
 	folder.Parent = parent
 	return folder
+end
+
+local function getMonstersFolder(): Folder
+	return getOrCreateFolder(Workspace, MONSTERS_FOLDER_NAME)
+end
+
+local function getTemplatesFolder(): Folder
+	local monstersFolder = getMonstersFolder()
+	return getOrCreateFolder(monstersFolder, TEMPLATES_FOLDER_NAME)
+end
+
+local function isTemplateDescendant(instance: Instance): boolean
+	local templatesFolder = getTemplatesFolder()
+	return instance:IsDescendantOf(templatesFolder)
 end
 
 local function applyBossConfig(monsterModel: Model): ()
@@ -59,7 +74,6 @@ local function applyBossConfig(monsterModel: Model): ()
 		return
 	end
 
-	monsterModel:SetAttribute(BOSS_ID_ATTRIBUTE_NAME, bossData.Id)
 	monsterModel:SetAttribute(IS_BOSS_ATTRIBUTE_NAME, true)
 	monsterModel:SetAttribute(BOSS_NAME_ATTRIBUTE_NAME, bossData.Name)
 	monsterModel:SetAttribute(EXP_REWARD_ATTRIBUTE_NAME, bossData.ExpReward)
@@ -72,30 +86,37 @@ local function applyBossConfig(monsterModel: Model): ()
 	monsterModel:SetAttribute(LEASH_RANGE_ATTRIBUTE_NAME, bossData.LeashRange)
 	monsterModel:SetAttribute(TARGET_MODE_ATTRIBUTE_NAME, bossData.TargetMode)
 
+	local firstInit = monsterModel:GetAttribute("BossStatsApplied") ~= true
+
 	humanoid.MaxHealth = bossData.MaxHP
-	humanoid.Health = bossData.MaxHP
 	humanoid.WalkSpeed = bossData.WalkSpeed
 	humanoid.DisplayName = bossData.Name
+
+	if firstInit then
+		humanoid.Health = bossData.MaxHP
+		monsterModel:SetAttribute("BossStatsApplied", true)
+	end
 
 	pcall(function()
 		rootPart:SetNetworkOwner(nil)
 	end)
-
-	print(("BossService: Applied boss config '%s' to '%s'"):format(bossIdValue, monsterModel.Name))
 end
 
 function BossService.Init(): ()
-	local monstersFolder = getOrCreateFolder(Workspace, MONSTERS_FOLDER_NAME)
+	local monstersFolder = getMonstersFolder()
+	getTemplatesFolder()
 
-	for _, child in monstersFolder:GetChildren() do
-		if child:IsA("Model") then
-			applyBossConfig(child)
+	for _, descendant in ipairs(monstersFolder:GetDescendants()) do
+		if descendant:IsA("Model") and not isTemplateDescendant(descendant) then
+			applyBossConfig(descendant)
 		end
 	end
 
-	monstersFolder.ChildAdded:Connect(function(child: Instance)
-		if child:IsA("Model") then
-			applyBossConfig(child)
+	monstersFolder.DescendantAdded:Connect(function(descendant: Instance)
+		if descendant:IsA("Model") and not isTemplateDescendant(descendant) then
+			task.defer(function()
+				applyBossConfig(descendant)
+			end)
 		end
 	end)
 end

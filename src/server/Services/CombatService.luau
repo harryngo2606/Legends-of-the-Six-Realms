@@ -17,6 +17,8 @@ local CombatService = {}
 local REMOTES_FOLDER_NAME = "GameRemotes"
 local BASIC_ATTACK_REMOTE_NAME = "RequestBasicAttack"
 local MONSTERS_FOLDER_NAME = "Monsters"
+local TEMPLATES_FOLDER_NAME = "Templates"
+local RUNTIME_FOLDER_NAME = "Runtime"
 local EXP_REWARD_ATTRIBUTE_NAME = "ExpReward"
 local DEFAULT_EXP_REWARD = 10
 
@@ -137,6 +139,66 @@ local function bindMonsterDeath(monsterModel: Model, humanoid: Humanoid): ()
 	end)
 end
 
+local function getMonstersFolder(): Folder?
+	local monstersFolder = Workspace:FindFirstChild(MONSTERS_FOLDER_NAME)
+	if monstersFolder ~= nil and monstersFolder:IsA("Folder") then
+		return monstersFolder
+	end
+
+	return nil
+end
+
+local function getTemplatesFolder(monstersFolder: Folder): Folder?
+	local templatesFolder = monstersFolder:FindFirstChild(TEMPLATES_FOLDER_NAME)
+	if templatesFolder ~= nil and templatesFolder:IsA("Folder") then
+		return templatesFolder
+	end
+
+	return nil
+end
+
+local function getRuntimeFolder(monstersFolder: Folder): Folder?
+	local runtimeFolder = monstersFolder:FindFirstChild(RUNTIME_FOLDER_NAME)
+	if runtimeFolder ~= nil and runtimeFolder:IsA("Folder") then
+		return runtimeFolder
+	end
+
+	return nil
+end
+
+local function isTemplateDescendant(instance: Instance, templatesFolder: Folder?): boolean
+	if templatesFolder == nil then
+		return false
+	end
+
+	return instance:IsDescendantOf(templatesFolder)
+end
+
+local function forEachRuntimeMonster(callback: (Model) -> ()): ()
+	local monstersFolder = getMonstersFolder()
+	if monstersFolder == nil then
+		return
+	end
+
+	local templatesFolder = getTemplatesFolder(monstersFolder)
+	local runtimeFolder = getRuntimeFolder(monstersFolder)
+
+	if runtimeFolder ~= nil then
+		for _, descendant in ipairs(runtimeFolder:GetDescendants()) do
+			if descendant:IsA("Model") then
+				callback(descendant)
+			end
+		end
+		return
+	end
+
+	for _, child in ipairs(monstersFolder:GetChildren()) do
+		if child:IsA("Model") and not isTemplateDescendant(child, templatesFolder) then
+			callback(child)
+		end
+	end
+end
+
 local function findBestTarget(player: Player): Humanoid?
 	local character = player.Character
 	if character == nil then
@@ -148,40 +210,31 @@ local function findBestTarget(player: Player): Humanoid?
 		return nil
 	end
 
-	local monstersFolder = Workspace:FindFirstChild(MONSTERS_FOLDER_NAME)
-	if monstersFolder == nil or not monstersFolder:IsA("Folder") then
-		return nil
-	end
-
 	local bestHumanoid: Humanoid? = nil
 	local bestDistance = math.huge
 
-	for _, candidate in monstersFolder:GetChildren() do
-		if not candidate:IsA("Model") then
-			continue
-		end
-
+	forEachRuntimeMonster(function(candidate: Model)
 		local targetHumanoid, targetRoot = getAliveCharacterParts(candidate)
 		if targetHumanoid == nil or targetRoot == nil then
-			continue
+			return
 		end
 
 		local offset = targetRoot.Position - attackerRoot.Position
 		local distance = offset.Magnitude
 
 		if distance > CombatConfig.BASIC_ATTACK_RANGE then
-			continue
+			return
 		end
 
 		if distance <= 0 then
-			continue
+			return
 		end
 
 		local direction = offset.Unit
 		local dot = attackerRoot.CFrame.LookVector:Dot(direction)
 
 		if dot < CombatConfig.BASIC_ATTACK_DOT_THRESHOLD then
-			continue
+			return
 		end
 
 		if distance < bestDistance then
@@ -189,7 +242,7 @@ local function findBestTarget(player: Player): Humanoid?
 			bestHumanoid = targetHumanoid
 			bindMonsterDeath(candidate, targetHumanoid)
 		end
-	end
+	end)
 
 	return bestHumanoid
 end

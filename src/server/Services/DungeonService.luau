@@ -17,12 +17,18 @@ local REMOTES_FOLDER_NAME = "GameRemotes"
 local ENTER_DUNGEON_REMOTE_NAME = "RequestEnterDungeon"
 local LEAVE_DUNGEON_REMOTE_NAME = "RequestLeaveDungeon"
 
+local WORLD_FOLDER_NAME = "World"
 local DUNGEONS_FOLDER_NAME = "Dungeons"
+local SPAWNS_FOLDER_NAME = "Spawns"
 local MONSTERS_FOLDER_NAME = "Monsters"
 local TEMPLATES_FOLDER_NAME = "Templates"
+local NORMAL_TEMPLATES_FOLDER_NAME = "Normal"
+local BOSS_TEMPLATES_FOLDER_NAME = "Boss"
+local RUNTIME_FOLDER_NAME = "Runtime"
+local DUNGEON_RUNTIME_FOLDER_NAME = "Dungeon"
+
 local DUNGEON_ID_ATTRIBUTE_NAME = "DungeonId"
 local BOSS_ID_ATTRIBUTE_NAME = "BossId"
-local MONSTER_ID_ATTRIBUTE_NAME = "MonsterId"
 
 local DEFAULT_TEST_DUNGEON_ID = "SlimeDungeon"
 local MAX_ATTEMPTS_PER_MOB = 20
@@ -63,27 +69,68 @@ local function setPlayerDungeonAttributes(player: Player, dungeonId: string, inD
 	player:SetAttribute("DungeonCleared", dungeonCleared)
 end
 
-local function getDungeonContainer(dungeonId: string): Instance?
-	local dungeonsFolder = Workspace:FindFirstChild(DUNGEONS_FOLDER_NAME)
-	if dungeonsFolder == nil then
-		return nil
-	end
-
-	return dungeonsFolder:FindFirstChild(dungeonId)
+local function getWorldFolder(): Folder
+	return getOrCreateFolder(Workspace, WORLD_FOLDER_NAME)
 end
 
-local function getDungeonSpawnPart(dungeonId: string, spawnName: string): BasePart?
+local function getDungeonsFolder(): Folder
+	local worldFolder = getWorldFolder()
+	return getOrCreateFolder(worldFolder, DUNGEONS_FOLDER_NAME)
+end
+
+local function getDungeonContainer(dungeonId: string): Instance?
+	local dungeonContainer = getDungeonsFolder():FindFirstChild(dungeonId)
+	if dungeonContainer ~= nil then
+		return dungeonContainer
+	end
+
+	local legacyDungeonsFolder = Workspace:FindFirstChild(DUNGEONS_FOLDER_NAME)
+	if legacyDungeonsFolder ~= nil then
+		return legacyDungeonsFolder:FindFirstChild(dungeonId)
+	end
+
+	return nil
+end
+
+local function getDungeonSpawnsContainer(dungeonId: string): Instance?
 	local dungeonContainer = getDungeonContainer(dungeonId)
 	if dungeonContainer == nil then
 		return nil
 	end
 
-	local spawnPart = dungeonContainer:FindFirstChild(spawnName)
+	local spawnsFolder = dungeonContainer:FindFirstChild(SPAWNS_FOLDER_NAME)
+	if spawnsFolder ~= nil and spawnsFolder:IsA("Folder") then
+		return spawnsFolder
+	end
+
+	return dungeonContainer
+end
+
+local function getDungeonSpawnPart(dungeonId: string, spawnName: string): BasePart?
+	local spawnsContainer = getDungeonSpawnsContainer(dungeonId)
+	if spawnsContainer == nil then
+		return nil
+	end
+
+	local spawnPart = spawnsContainer:FindFirstChild(spawnName)
 	if spawnPart == nil or not spawnPart:IsA("BasePart") then
 		return nil
 	end
 
 	return spawnPart
+end
+
+local function getDungeonSpawnParts(dungeonId: string, spawnNames: {string}): {BasePart}
+	local results: {BasePart} = {}
+
+	for _, spawnName in ipairs(spawnNames) do
+		local spawnPart = getDungeonSpawnPart(dungeonId, spawnName)
+		if spawnPart ~= nil then
+			table.insert(results, spawnPart)
+		end
+	end
+
+	return results
 end
 
 local function getMonstersFolder(): Folder
@@ -95,14 +142,39 @@ local function getMonsterTemplatesFolder(): Folder
 	return getOrCreateFolder(monstersFolder, TEMPLATES_FOLDER_NAME)
 end
 
-local function getMonsterTemplate(templateName: string): Model?
+local function getNormalTemplatesFolder(): Folder
 	local templatesFolder = getMonsterTemplatesFolder()
-	local template = templatesFolder:FindFirstChild(templateName)
-	if template == nil or not template:IsA("Model") then
-		return nil
+	return getOrCreateFolder(templatesFolder, NORMAL_TEMPLATES_FOLDER_NAME)
+end
+
+local function getBossTemplatesFolder(): Folder
+	local templatesFolder = getMonsterTemplatesFolder()
+	return getOrCreateFolder(templatesFolder, BOSS_TEMPLATES_FOLDER_NAME)
+end
+
+local function getMonsterRuntimeFolder(): Folder
+	local monstersFolder = getMonstersFolder()
+	return getOrCreateFolder(monstersFolder, RUNTIME_FOLDER_NAME)
+end
+
+local function getDungeonRuntimeFolder(): Folder
+	local runtimeFolder = getMonsterRuntimeFolder()
+	return getOrCreateFolder(runtimeFolder, DUNGEON_RUNTIME_FOLDER_NAME)
+end
+
+local function getMonsterTemplate(templateName: string, isBossTemplate: boolean): Model?
+	local templateFolder = if isBossTemplate then getBossTemplatesFolder() else getNormalTemplatesFolder()
+	local template = templateFolder:FindFirstChild(templateName)
+	if template ~= nil and template:IsA("Model") then
+		return template
 	end
 
-	return template
+	local legacyTemplate = getMonsterTemplatesFolder():FindFirstChild(templateName)
+	if legacyTemplate ~= nil and legacyTemplate:IsA("Model") then
+		return legacyTemplate
+	end
+
+	return nil
 end
 
 local function pivotModelToPart(model: Model, targetPart: BasePart): boolean
@@ -178,12 +250,9 @@ local function hasPlayersInDungeon(dungeonId: string): boolean
 end
 
 local function clearDungeonRuntimeMonsters(dungeonId: string): ()
-	local monstersFolder = Workspace:FindFirstChild(MONSTERS_FOLDER_NAME)
-	if monstersFolder == nil or not monstersFolder:IsA("Folder") then
-		return
-	end
+	local dungeonRuntimeFolder = getDungeonRuntimeFolder()
 
-	for _, child in monstersFolder:GetChildren() do
+	for _, child in ipairs(dungeonRuntimeFolder:GetChildren()) do
 		if not child:IsA("Model") then
 			continue
 		end
@@ -264,22 +333,17 @@ local function tryBindDungeonBoss(monsterModel: Model): ()
 		clearDungeon(dungeonIdValue)
 		cleanupBossConnection(humanoid)
 	end)
-
-	print(("DungeonService: Bound dungeon boss '%s' (%s) for dungeon '%s'"):format(monsterModel.Name, dungeonData.BossId, dungeonIdValue))
 end
 
 local function hasAliveDungeonMobs(dungeonId: string): boolean
-	local monstersFolder = Workspace:FindFirstChild(MONSTERS_FOLDER_NAME)
-	if monstersFolder == nil or not monstersFolder:IsA("Folder") then
-		return false
-	end
-
 	local dungeonData = DungeonConfig.GetDungeon(dungeonId)
 	if dungeonData == nil then
 		return false
 	end
 
-	for _, child in monstersFolder:GetChildren() do
+	local dungeonRuntimeFolder = getDungeonRuntimeFolder()
+
+	for _, child in ipairs(dungeonRuntimeFolder:GetChildren()) do
 		if not child:IsA("Model") then
 			continue
 		end
@@ -319,7 +383,7 @@ local function spawnBossForDungeon(dungeonId: string): ()
 		return
 	end
 
-	local bossTemplate = getMonsterTemplate(dungeonData.BossTemplateName)
+	local bossTemplate = getMonsterTemplate(dungeonData.BossTemplateName, true)
 	if bossTemplate == nil then
 		warn(("DungeonService: Missing boss template '%s' for dungeon '%s'"):format(dungeonData.BossTemplateName, dungeonId))
 		return
@@ -329,18 +393,14 @@ local function spawnBossForDungeon(dungeonId: string): ()
 	bossClone.Name = dungeonData.BossMonsterName
 	bossClone:SetAttribute(DUNGEON_ID_ATTRIBUTE_NAME, dungeonId)
 	bossClone:SetAttribute(BOSS_ID_ATTRIBUTE_NAME, dungeonData.BossId)
+	bossClone.Parent = getDungeonRuntimeFolder()
 
 	if not pivotModelToPart(bossClone, bossSpawn) then
 		bossClone:Destroy()
 		return
 	end
 
-	bossClone.Parent = getMonstersFolder()
-	tryBindDungeonBoss(bossClone)
-
 	bossSpawnedByDungeon[dungeonId] = true
-
-	print(("DungeonService: Spawned boss '%s' (%s) for dungeon '%s'"):format(bossClone.Name, dungeonData.BossId, dungeonId))
 end
 
 local function getXZDistance(a: Vector3, b: Vector3): number
@@ -405,19 +465,28 @@ local function bindDungeonMob(monsterModel: Model): ()
 	end)
 end
 
+local function getRandomSpawnCenter(spawnParts: {BasePart}): BasePart?
+	if #spawnParts <= 0 then
+		return nil
+	end
+
+	local randomIndex = math.random(1, #spawnParts)
+	return spawnParts[randomIndex]
+end
+
 local function spawnDungeonMobs(dungeonId: string): ()
 	local dungeonData = DungeonConfig.GetDungeon(dungeonId)
 	if dungeonData == nil then
 		return
 	end
 
-	local monsterSpawn = getDungeonSpawnPart(dungeonId, dungeonData.MonsterSpawnName)
-	if monsterSpawn == nil then
-		warn(("DungeonService: Missing monster spawn '%s' for dungeon '%s'"):format(dungeonData.MonsterSpawnName, dungeonId))
+	local monsterSpawns = getDungeonSpawnParts(dungeonId, dungeonData.MonsterSpawnNames)
+	if #monsterSpawns <= 0 then
+		warn(("DungeonService: Missing mob spawns for dungeon '%s'"):format(dungeonId))
 		return
 	end
 
-	local monsterTemplate = getMonsterTemplate(dungeonData.MonsterTemplateName)
+	local monsterTemplate = getMonsterTemplate(dungeonData.MonsterTemplateName, false)
 	if monsterTemplate == nil then
 		warn(("DungeonService: Missing monster template '%s' for dungeon '%s'"):format(dungeonData.MonsterTemplateName, dungeonId))
 		return
@@ -430,13 +499,17 @@ local function spawnDungeonMobs(dungeonId: string): ()
 	local targetCount = math.max(dungeonData.MonsterCount, 0)
 	local spreadRadius = math.max(dungeonData.MonsterSpreadRadius, 0)
 	local minSpacing = math.max(dungeonData.MonsterMinSpacing, 0)
-	local spawnCenter = monsterSpawn.Position
 
 	for _ = 1, targetCount do
+		local spawnCenterPart = getRandomSpawnCenter(monsterSpawns)
+		if spawnCenterPart == nil then
+			break
+		end
+
 		local chosenPosition: Vector3? = nil
 
 		for _ = 1, MAX_ATTEMPTS_PER_MOB do
-			local candidate = getRandomPointAround(spawnCenter, spreadRadius)
+			local candidate = getRandomPointAround(spawnCenterPart.Position, spreadRadius)
 			if isFarEnough(candidate, placedPositions, minSpacing) then
 				chosenPosition = candidate
 				break
@@ -449,16 +522,15 @@ local function spawnDungeonMobs(dungeonId: string): ()
 		end
 
 		local monsterClone = monsterTemplate:Clone()
-		monsterClone.Name = dungeonData.MonsterId
-		monsterClone:SetAttribute(DUNGEON_ID_ATTRIBUTE_NAME, dungeonId)
-		monsterClone:SetAttribute(MONSTER_ID_ATTRIBUTE_NAME, dungeonData.MonsterId)
+		monsterClone.Name = "Slime"
+		monsterClone:SetAttribute("DungeonId", dungeonId)
+		monsterClone:SetAttribute("MonsterId", dungeonData.MonsterId)
+		monsterClone.Parent = getDungeonRuntimeFolder()
 
 		if not pivotModelToPosition(monsterClone, chosenPosition) then
 			monsterClone:Destroy()
 			continue
 		end
-
-		monsterClone.Parent = getMonstersFolder()
 
 		table.insert(placedPositions, chosenPosition)
 		bindDungeonMob(monsterClone)
@@ -469,8 +541,6 @@ local function spawnDungeonMobs(dungeonId: string): ()
 		warn(("DungeonService: No dungeon mobs spawned for '%s'"):format(dungeonId))
 		return
 	end
-
-	print(("DungeonService: Spawned %d dungeon mobs for '%s'"):format(spawnCount, dungeonId))
 end
 
 function DungeonService.HandleEnterDungeon(player: Player, dungeonId: string?): ()
@@ -502,8 +572,6 @@ function DungeonService.HandleEnterDungeon(player: Player, dungeonId: string?): 
 	if not hasAliveDungeonMobs(targetDungeonId) and bossSpawnedByDungeon[targetDungeonId] ~= true and clearedDungeons[targetDungeonId] ~= true then
 		spawnDungeonMobs(targetDungeonId)
 	end
-
-	print(("DungeonService: Player '%s' entered dungeon '%s'"):format(player.Name, targetDungeonId))
 end
 
 function DungeonService.HandleLeaveDungeon(player: Player): ()
@@ -530,8 +598,6 @@ function DungeonService.HandleLeaveDungeon(player: Player): ()
 	if not hasPlayersInDungeon(dungeonId) then
 		resetDungeonRunState(dungeonId)
 	end
-
-	print(("DungeonService: Player '%s' left dungeon '%s'"):format(player.Name, dungeonId))
 end
 
 function DungeonService.Init(): ()
@@ -539,18 +605,19 @@ function DungeonService.Init(): ()
 	local enterDungeonRemote = getOrCreateRemoteEvent(remotesFolder, ENTER_DUNGEON_REMOTE_NAME)
 	local leaveDungeonRemote = getOrCreateRemoteEvent(remotesFolder, LEAVE_DUNGEON_REMOTE_NAME)
 
-	getOrCreateFolder(Workspace, DUNGEONS_FOLDER_NAME)
+	getDungeonsFolder()
+	getNormalTemplatesFolder()
+	getBossTemplatesFolder()
 
-	local monstersFolder = getMonstersFolder()
-	getMonsterTemplatesFolder()
+	local dungeonRuntimeFolder = getDungeonRuntimeFolder()
 
-	for _, child in ipairs(monstersFolder:GetChildren()) do
+	for _, child in ipairs(dungeonRuntimeFolder:GetChildren()) do
 		if child:IsA("Model") then
 			tryBindDungeonBoss(child)
 		end
 	end
 
-	monstersFolder.ChildAdded:Connect(function(child: Instance)
+	dungeonRuntimeFolder.ChildAdded:Connect(function(child: Instance)
 		if child:IsA("Model") then
 			task.defer(function()
 				tryBindDungeonBoss(child)

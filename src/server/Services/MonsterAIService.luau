@@ -21,6 +21,7 @@ type MonsterState = {
 local MonsterAIService = {}
 
 local MONSTERS_FOLDER_NAME = "Monsters"
+local TEMPLATES_FOLDER_NAME = "Templates"
 local MONSTER_ID_ATTRIBUTE_NAME = "MonsterId"
 local BOSS_ID_ATTRIBUTE_NAME = "BossId"
 local ATTACK_ATTRIBUTE_NAME = "Attack"
@@ -98,6 +99,38 @@ local function getStringAttribute(instance: Instance, attributeName: string, def
 	return defaultValue
 end
 
+local function getMonstersFolder(): Folder
+	return getOrCreateFolder(Workspace, MONSTERS_FOLDER_NAME)
+end
+
+local function getTemplatesFolder(monstersFolder: Folder): Folder?
+	local templatesFolder = monstersFolder:FindFirstChild(TEMPLATES_FOLDER_NAME)
+	if templatesFolder ~= nil and templatesFolder:IsA("Folder") then
+		return templatesFolder
+	end
+
+	return nil
+end
+
+local function isTemplateDescendant(instance: Instance, templatesFolder: Folder?): boolean
+	if templatesFolder == nil then
+		return false
+	end
+
+	return instance:IsDescendantOf(templatesFolder)
+end
+
+local function forEachRuntimeMonster(callback: (Model) -> ()): ()
+	local monstersFolder = getMonstersFolder()
+	local templatesFolder = getTemplatesFolder(monstersFolder)
+
+	for _, descendant in ipairs(monstersFolder:GetDescendants()) do
+		if descendant:IsA("Model") and not isTemplateDescendant(descendant, templatesFolder) then
+			callback(descendant)
+		end
+	end
+end
+
 local function resolveMonsterId(monsterModel: Model): string?
 	local monsterIdValue = monsterModel:GetAttribute(MONSTER_ID_ATTRIBUTE_NAME)
 	if typeof(monsterIdValue) == "string" and monsterIdValue ~= "" then
@@ -154,10 +187,16 @@ local function applyMonsterConfig(monsterModel: Model): ()
 	monsterModel:SetAttribute(LEASH_RANGE_ATTRIBUTE_NAME, monsterData.LeashRange)
 	monsterModel:SetAttribute(TARGET_MODE_ATTRIBUTE_NAME, monsterData.TargetMode)
 
+	local firstInit = monsterModel:GetAttribute("AIStatsApplied") ~= true
+
 	humanoid.MaxHealth = monsterData.MaxHP
-	humanoid.Health = monsterData.MaxHP
 	humanoid.WalkSpeed = monsterData.WalkSpeed
 	humanoid.DisplayName = monsterData.Name
+
+	if firstInit then
+		humanoid.Health = monsterData.MaxHP
+		monsterModel:SetAttribute("AIStatsApplied", true)
+	end
 
 	pcall(function()
 		rootPart:SetNetworkOwner(nil)
@@ -415,8 +454,6 @@ function MonsterAIService.RegisterDamage(monsterModel: Model, player: Player, da
 		return
 	end
 
-	applyMonsterConfig(monsterModel)
-
 	local humanoid = monsterModel:FindFirstChildOfClass("Humanoid")
 	if humanoid == nil or humanoid.Health <= 0 then
 		return
@@ -431,20 +468,18 @@ function MonsterAIService.RegisterDamage(monsterModel: Model, player: Player, da
 end
 
 function MonsterAIService.Init(): ()
-	local monstersFolder = getOrCreateFolder(Workspace, MONSTERS_FOLDER_NAME)
+	local monstersFolder = getMonstersFolder()
 
-	for _, child in ipairs(monstersFolder:GetChildren()) do
-		if child:IsA("Model") then
-			applyMonsterConfig(child)
-			getOrCreateMonsterState(child)
-		end
-	end
+	forEachRuntimeMonster(function(monsterModel: Model)
+		applyMonsterConfig(monsterModel)
+		getOrCreateMonsterState(monsterModel)
+	end)
 
-	monstersFolder.ChildAdded:Connect(function(child: Instance)
-		if child:IsA("Model") then
+	monstersFolder.DescendantAdded:Connect(function(descendant: Instance)
+		if descendant:IsA("Model") and not isTemplateDescendant(descendant, getTemplatesFolder(monstersFolder)) then
 			task.defer(function()
-				applyMonsterConfig(child)
-				getOrCreateMonsterState(child)
+				applyMonsterConfig(descendant)
+				getOrCreateMonsterState(descendant)
 			end)
 		end
 	end)
@@ -464,12 +499,12 @@ function MonsterAIService.Init(): ()
 
 			heartbeatAccumulator = 0
 
-			for _, child in ipairs(monstersFolder:GetChildren()) do
-				if child:IsA("Model") and monsterStates[child] == nil then
-					applyMonsterConfig(child)
-					getOrCreateMonsterState(child)
+			forEachRuntimeMonster(function(monsterModel: Model)
+				if monsterStates[monsterModel] == nil then
+					applyMonsterConfig(monsterModel)
+					getOrCreateMonsterState(monsterModel)
 				end
-			end
+			end)
 
 			for monsterModel, _ in monsterStates do
 				updateMonster(monsterModel)
