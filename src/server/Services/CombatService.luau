@@ -10,6 +10,7 @@ local Modules = Shared:WaitForChild("Modules")
 local CombatConfig = require(Modules:WaitForChild("CombatConfig"))
 local PlayerDataService = require(script.Parent:WaitForChild("PlayerDataService"))
 local CharacterService = require(script.Parent:WaitForChild("CharacterService"))
+local MonsterAIService = require(script.Parent:WaitForChild("MonsterAIService"))
 
 local CombatService = {}
 
@@ -63,13 +64,19 @@ local function getAliveCharacterParts(character: Model): (Humanoid?, BasePart?)
 	return humanoid, rootPart
 end
 
+local function getAttackCooldown(player: Player): number
+	local stats = PlayerDataService.GetCurrentStats(player)
+	local attackSpeed = math.max(stats.AttackSpeed, 0.1)
+	return CombatConfig.BASIC_ATTACK_COOLDOWN / attackSpeed
+end
+
 local function isOnCooldown(player: Player): boolean
 	local lastAttackTime = playerCooldowns[player]
 	if lastAttackTime == nil then
 		return false
 	end
 
-	return os.clock() - lastAttackTime < CombatConfig.BASIC_ATTACK_COOLDOWN
+	return os.clock() - lastAttackTime < getAttackCooldown(player)
 end
 
 local function markAttackUsed(player: Player): ()
@@ -212,6 +219,11 @@ function CombatService.HandleBasicAttack(player: Player): ()
 
 	local stats = PlayerDataService.GetCurrentStats(player)
 	local damage = math.max(CombatConfig.BASIC_ATTACK_DAMAGE, stats.Attack)
+
+	local targetModel = targetHumanoid.Parent
+	if targetModel ~= nil and targetModel:IsA("Model") then
+		MonsterAIService.RegisterDamage(targetModel, player, damage)
+	end
 
 	targetHumanoid:TakeDamage(damage)
 end

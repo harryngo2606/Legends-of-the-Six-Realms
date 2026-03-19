@@ -9,6 +9,7 @@ local StatsConfig = require(Modules:WaitForChild("StatsConfig"))
 local EquipmentConfig = require(Modules:WaitForChild("EquipmentConfig"))
 
 type BaseStats = StatsConfig.BaseStats
+type CoreStats = StatsConfig.CoreStats
 type PlayerData = StatsConfig.PlayerData
 
 local PlayerDataService = {}
@@ -46,7 +47,9 @@ local function buildCurrentStats(profile: PlayerData): BaseStats
 
 	return {
 		MaxHP = levelStats.MaxHP + weapon.StatBonus.MaxHP,
+		MaxMana = levelStats.MaxMana + weapon.StatBonus.MaxMana,
 		Attack = levelStats.Attack + weapon.StatBonus.Attack,
+		AttackSpeed = levelStats.AttackSpeed + weapon.StatBonus.AttackSpeed,
 		Defense = levelStats.Defense + weapon.StatBonus.Defense,
 		WalkSpeed = levelStats.WalkSpeed + weapon.StatBonus.WalkSpeed,
 	}
@@ -96,6 +99,11 @@ function PlayerDataService.GetOrCreateProfile(player: Player): PlayerData
 	end
 
 	return PlayerDataService.CreateProfile(player)
+end
+
+function PlayerDataService.GetCoreStats(player: Player): CoreStats
+	local profile = PlayerDataService.GetOrCreateProfile(player)
+	return StatsConfig.GetCoreStatsForLevel(profile.Level)
 end
 
 function PlayerDataService.GetCurrentStats(player: Player): BaseStats

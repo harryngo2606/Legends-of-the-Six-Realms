@@ -15,6 +15,14 @@ local IS_BOSS_ATTRIBUTE_NAME = "IsBoss"
 local EXP_REWARD_ATTRIBUTE_NAME = "ExpReward"
 local BOSS_NAME_ATTRIBUTE_NAME = "BossName"
 
+local ATTACK_ATTRIBUTE_NAME = "Attack"
+local ATTACK_COOLDOWN_ATTRIBUTE_NAME = "AttackCooldown"
+local DETECT_RANGE_ATTRIBUTE_NAME = "DetectRange"
+local ATTACK_RANGE_ATTRIBUTE_NAME = "AttackRange"
+local CHASE_RANGE_ATTRIBUTE_NAME = "ChaseRange"
+local LEASH_RANGE_ATTRIBUTE_NAME = "LeashRange"
+local TARGET_MODE_ATTRIBUTE_NAME = "TargetMode"
+
 local function getOrCreateFolder(parent: Instance, name: string): Folder
 	local existing = parent:FindFirstChild(name)
 	if existing and existing:IsA("Folder") then
@@ -51,14 +59,27 @@ local function applyBossConfig(monsterModel: Model): ()
 		return
 	end
 
+	monsterModel:SetAttribute(BOSS_ID_ATTRIBUTE_NAME, bossData.Id)
 	monsterModel:SetAttribute(IS_BOSS_ATTRIBUTE_NAME, true)
 	monsterModel:SetAttribute(BOSS_NAME_ATTRIBUTE_NAME, bossData.Name)
 	monsterModel:SetAttribute(EXP_REWARD_ATTRIBUTE_NAME, bossData.ExpReward)
+
+	monsterModel:SetAttribute(ATTACK_ATTRIBUTE_NAME, bossData.Attack)
+	monsterModel:SetAttribute(ATTACK_COOLDOWN_ATTRIBUTE_NAME, bossData.AttackCooldown)
+	monsterModel:SetAttribute(DETECT_RANGE_ATTRIBUTE_NAME, bossData.DetectRange)
+	monsterModel:SetAttribute(ATTACK_RANGE_ATTRIBUTE_NAME, bossData.AttackRange)
+	monsterModel:SetAttribute(CHASE_RANGE_ATTRIBUTE_NAME, bossData.ChaseRange)
+	monsterModel:SetAttribute(LEASH_RANGE_ATTRIBUTE_NAME, bossData.LeashRange)
+	monsterModel:SetAttribute(TARGET_MODE_ATTRIBUTE_NAME, bossData.TargetMode)
 
 	humanoid.MaxHealth = bossData.MaxHP
 	humanoid.Health = bossData.MaxHP
 	humanoid.WalkSpeed = bossData.WalkSpeed
 	humanoid.DisplayName = bossData.Name
+
+	pcall(function()
+		rootPart:SetNetworkOwner(nil)
+	end)
 
 	print(("BossService: Applied boss config '%s' to '%s'"):format(bossIdValue, monsterModel.Name))
 end

@@ -4,7 +4,9 @@ local EquipmentConfig = {}
 
 export type StatBonus = {
 	MaxHP: number,
+	MaxMana: number,
 	Attack: number,
+	AttackSpeed: number,
 	Defense: number,
 	WalkSpeed: number,
 }
@@ -23,7 +25,9 @@ local weapons: {[string]: WeaponData} = {
 		Slot = "Weapon",
 		StatBonus = {
 			MaxHP = 0,
+			MaxMana = 0,
 			Attack = 50,
+			AttackSpeed = 0,
 			Defense = 0,
 			WalkSpeed = 0,
 		},

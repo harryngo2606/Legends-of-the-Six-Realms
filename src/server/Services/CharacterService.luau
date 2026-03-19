@@ -10,6 +10,7 @@ local StatsConfig = require(Modules:WaitForChild("StatsConfig"))
 local PlayerDataService = require(script.Parent:WaitForChild("PlayerDataService"))
 
 type BaseStats = StatsConfig.BaseStats
+type CoreStats = StatsConfig.CoreStats
 
 local CharacterService = {}
 
@@ -41,6 +42,15 @@ local function setNumberValue(parent: Instance, name: string, value: number): ()
 	end
 end
 
+local function getPlayerMana(player: Player, maxMana: number): number
+	local manaAttribute = player:GetAttribute("Mana")
+	if typeof(manaAttribute) ~= "number" then
+		return maxMana
+	end
+
+	return math.clamp(manaAttribute, 0, maxMana)
+end
+
 function CharacterService.CreateLeaderstats(player: Player): ()
 	local existing = player:FindFirstChild("leaderstats")
 	if existing then
@@ -59,10 +69,27 @@ end
 
 function CharacterService.SyncPlayerState(player: Player): ()
 	local profile = PlayerDataService.GetOrCreateProfile(player)
+	local coreStats: CoreStats = PlayerDataService.GetCoreStats(player)
+	local currentStats: BaseStats = PlayerDataService.GetCurrentStats(player)
 
 	player:SetAttribute("Level", profile.Level)
 	player:SetAttribute("Exp", profile.Exp)
 	player:SetAttribute("ExpNeeded", StatsConfig.GetExpNeeded(profile.Level))
+
+	player:SetAttribute("STR", coreStats.STR)
+	player:SetAttribute("AGI", coreStats.AGI)
+	player:SetAttribute("HP", coreStats.HP)
+	player:SetAttribute("MP", coreStats.MP)
+
+	player:SetAttribute("MaxHP", currentStats.MaxHP)
+	player:SetAttribute("MaxMana", currentStats.MaxMana)
+	player:SetAttribute("Attack", currentStats.Attack)
+	player:SetAttribute("AttackSpeed", currentStats.AttackSpeed)
+	player:SetAttribute("Defense", currentStats.Defense)
+	player:SetAttribute("WalkSpeed", currentStats.WalkSpeed)
+
+	local currentMana = getPlayerMana(player, currentStats.MaxMana)
+	player:SetAttribute("Mana", currentMana)
 end
 
 function CharacterService.RefreshLeaderstats(player: Player): ()
@@ -84,16 +111,28 @@ function CharacterService.ApplyStatsToCharacter(player: Player, character: Model
 		return
 	end
 
+	local coreStats: CoreStats = PlayerDataService.GetCoreStats(player)
 	local stats: BaseStats = PlayerDataService.GetCurrentStats(player)
 
 	humanoid.MaxHealth = stats.MaxHP
-	humanoid.Health = stats.MaxHP
+	humanoid.Health = math.min(humanoid.Health > 0 and humanoid.Health or stats.MaxHP, stats.MaxHP)
 	humanoid.WalkSpeed = stats.WalkSpeed
 
+	local currentMana = getPlayerMana(player, stats.MaxMana)
+	player:SetAttribute("Mana", currentMana)
+
 	local statsFolder = getOrCreateStatsFolder(character)
+	setNumberValue(statsFolder, "STR", coreStats.STR)
+	setNumberValue(statsFolder, "AGI", coreStats.AGI)
+	setNumberValue(statsFolder, "HP", coreStats.HP)
+	setNumberValue(statsFolder, "MP", coreStats.MP)
+
 	setNumberValue(statsFolder, "MaxHP", stats.MaxHP)
+	setNumberValue(statsFolder, "MaxMana", stats.MaxMana)
+	setNumberValue(statsFolder, "Mana", currentMana)
 	setNumberValue(statsFolder, "WalkSpeed", stats.WalkSpeed)
 	setNumberValue(statsFolder, "Attack", stats.Attack)
+	setNumberValue(statsFolder, "AttackSpeed", stats.AttackSpeed)
 	setNumberValue(statsFolder, "Defense", stats.Defense)
 end
 
@@ -113,6 +152,10 @@ function CharacterService.SetupPlayer(player: Player): ()
 	CharacterService.RefreshPlayer(player)
 
 	player.CharacterAdded:Connect(function(character: Model)
+		local maxManaAttribute = player:GetAttribute("MaxMana")
+		local maxMana = if typeof(maxManaAttribute) == "number" then maxManaAttribute else 0
+		player:SetAttribute("Mana", maxMana)
+
 		CharacterService.ApplyStatsToCharacter(player, character)
 	end)
 end
