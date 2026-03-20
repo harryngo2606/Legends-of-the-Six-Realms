@@ -12,7 +12,6 @@ local enterDungeonRemote = remotesFolder:WaitForChild("RequestEnterDungeon") :: 
 local leaveDungeonRemote = remotesFolder:WaitForChild("RequestLeaveDungeon") :: RemoteEvent
 
 function DungeonController.Init(): ()
-	print("Client: DungeonController.Init start")
 
 	UserInputService.InputBegan:Connect(function(input: InputObject, gameProcessed: boolean)
 		if gameProcessed then
@@ -24,15 +23,12 @@ function DungeonController.Init(): ()
 		end
 
 		if input.KeyCode == Enum.KeyCode.F then
-			print("Client: Request enter dungeon", TEST_DUNGEON_ID)
 			enterDungeonRemote:FireServer(TEST_DUNGEON_ID)
 		elseif input.KeyCode == Enum.KeyCode.G then
-			print("Client: Request leave dungeon")
 			leaveDungeonRemote:FireServer()
 		end
 	end)
 
-	print("Client: DungeonController.Init connected")
 end
 
 return DungeonController

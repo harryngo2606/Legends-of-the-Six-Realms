@@ -299,8 +299,6 @@ local function clearDungeon(dungeonId: string): ()
 		setPlayerDungeonAttributes(player, dungeonId, true, true)
 		rewardDungeonClear(player, dungeonData.ClearExpReward)
 	end
-
-	print(("DungeonService: Cleared dungeon '%s'"):format(dungeonId))
 end
 
 local function tryBindDungeonBoss(monsterModel: Model): ()
@@ -393,6 +391,7 @@ local function spawnBossForDungeon(dungeonId: string): ()
 	bossClone.Name = dungeonData.BossMonsterName
 	bossClone:SetAttribute(DUNGEON_ID_ATTRIBUTE_NAME, dungeonId)
 	bossClone:SetAttribute(BOSS_ID_ATTRIBUTE_NAME, dungeonData.BossId)
+	bossClone:SetAttribute("AIEnabled", true)
 	bossClone.Parent = getDungeonRuntimeFolder()
 
 	if not pivotModelToPart(bossClone, bossSpawn) then
@@ -522,9 +521,10 @@ local function spawnDungeonMobs(dungeonId: string): ()
 		end
 
 		local monsterClone = monsterTemplate:Clone()
-		monsterClone.Name = "Slime"
-		monsterClone:SetAttribute("DungeonId", dungeonId)
+		monsterClone.Name = dungeonData.MonsterId
+		monsterClone:SetAttribute(DUNGEON_ID_ATTRIBUTE_NAME, dungeonId)
 		monsterClone:SetAttribute("MonsterId", dungeonData.MonsterId)
+		monsterClone:SetAttribute("AIEnabled", true)
 		monsterClone.Parent = getDungeonRuntimeFolder()
 
 		if not pivotModelToPosition(monsterClone, chosenPosition) then

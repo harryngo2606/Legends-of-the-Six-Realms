@@ -15,6 +15,7 @@ local BOSS_ID_ATTRIBUTE_NAME = "BossId"
 local IS_BOSS_ATTRIBUTE_NAME = "IsBoss"
 local EXP_REWARD_ATTRIBUTE_NAME = "ExpReward"
 local BOSS_NAME_ATTRIBUTE_NAME = "BossName"
+local AI_ENABLED_ATTRIBUTE_NAME = "AIEnabled"
 
 local ATTACK_ATTRIBUTE_NAME = "Attack"
 local ATTACK_COOLDOWN_ATTRIBUTE_NAME = "AttackCooldown"
@@ -22,7 +23,9 @@ local DETECT_RANGE_ATTRIBUTE_NAME = "DetectRange"
 local ATTACK_RANGE_ATTRIBUTE_NAME = "AttackRange"
 local CHASE_RANGE_ATTRIBUTE_NAME = "ChaseRange"
 local LEASH_RANGE_ATTRIBUTE_NAME = "LeashRange"
+local ASSIST_RADIUS_ATTRIBUTE_NAME = "AssistRadius"
 local TARGET_MODE_ATTRIBUTE_NAME = "TargetMode"
+local AGGRO_MODE_ATTRIBUTE_NAME = "AggroMode"
 
 local function getOrCreateFolder(parent: Instance, name: string): Folder
 	local existing = parent:FindFirstChild(name)
@@ -77,6 +80,7 @@ local function applyBossConfig(monsterModel: Model): ()
 	monsterModel:SetAttribute(IS_BOSS_ATTRIBUTE_NAME, true)
 	monsterModel:SetAttribute(BOSS_NAME_ATTRIBUTE_NAME, bossData.Name)
 	monsterModel:SetAttribute(EXP_REWARD_ATTRIBUTE_NAME, bossData.ExpReward)
+	monsterModel:SetAttribute(AI_ENABLED_ATTRIBUTE_NAME, true)
 
 	monsterModel:SetAttribute(ATTACK_ATTRIBUTE_NAME, bossData.Attack)
 	monsterModel:SetAttribute(ATTACK_COOLDOWN_ATTRIBUTE_NAME, bossData.AttackCooldown)
@@ -84,7 +88,9 @@ local function applyBossConfig(monsterModel: Model): ()
 	monsterModel:SetAttribute(ATTACK_RANGE_ATTRIBUTE_NAME, bossData.AttackRange)
 	monsterModel:SetAttribute(CHASE_RANGE_ATTRIBUTE_NAME, bossData.ChaseRange)
 	monsterModel:SetAttribute(LEASH_RANGE_ATTRIBUTE_NAME, bossData.LeashRange)
+	monsterModel:SetAttribute(ASSIST_RADIUS_ATTRIBUTE_NAME, bossData.AssistRadius)
 	monsterModel:SetAttribute(TARGET_MODE_ATTRIBUTE_NAME, bossData.TargetMode)
+	monsterModel:SetAttribute(AGGRO_MODE_ATTRIBUTE_NAME, bossData.AggroMode)
 
 	local firstInit = monsterModel:GetAttribute("BossStatsApplied") ~= true
 

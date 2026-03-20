@@ -3,6 +3,7 @@
 local BossConfig = {}
 
 export type TargetMode = "Nearest" | "HighestDamage"
+export type AggroMode = "PassiveCounter" | "AutoAggro"
 
 export type BossData = {
 	Id: string,
@@ -15,8 +16,10 @@ export type BossData = {
 	AttackRange: number,
 	ChaseRange: number,
 	LeashRange: number,
+	AssistRadius: number,
 	ExpReward: number,
 	TargetMode: TargetMode,
+	AggroMode: AggroMode,
 }
 
 local bosses: {[string]: BossData} = {
@@ -31,8 +34,10 @@ local bosses: {[string]: BossData} = {
 		AttackRange = 8,
 		ChaseRange = 60,
 		LeashRange = 80,
+		AssistRadius = 0,
 		ExpReward = 50,
 		TargetMode = "HighestDamage",
+		AggroMode = "AutoAggro",
 	},
 }
 

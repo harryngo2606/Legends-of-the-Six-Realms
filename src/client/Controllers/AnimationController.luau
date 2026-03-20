@@ -53,8 +53,6 @@ local function loadRightPunchTrack(character: Model)
 
 	currentTrack = trackOrError :: AnimationTrack
 	currentTrack.Priority = Enum.AnimationPriority.Action
-
-	print("AnimationController: RightPunch track loaded")
 end
 
 local function onCharacterAdded(character: Model)
@@ -63,7 +61,6 @@ end
 
 function AnimationController.PlayRightPunch()
 	if currentTrack == nil then
-		warn("AnimationController: RightPunch track not loaded")
 		return
 	end
 
@@ -72,11 +69,9 @@ function AnimationController.PlayRightPunch()
 	end
 
 	currentTrack:Play(0.05, 1, 1)
-	print("AnimationController: RightPunch played")
 end
 
 function AnimationController.Init()
-	print("AnimationController: Init start")
 
 	if localPlayer.Character then
 		onCharacterAdded(localPlayer.Character)
@@ -97,8 +92,6 @@ function AnimationController.Init()
 			AnimationController.PlayRightPunch()
 		end
 	end)
-
-	print("AnimationController: Init done")
 end
 
 return AnimationController

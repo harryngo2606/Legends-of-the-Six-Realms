@@ -3,6 +3,7 @@
 local MonsterConfig = {}
 
 export type TargetMode = "Nearest" | "HighestDamage"
+export type AggroMode = "PassiveCounter" | "AutoAggro"
 
 export type MonsterData = {
 	Id: string,
@@ -15,12 +16,13 @@ export type MonsterData = {
 	AttackRange: number,
 	ChaseRange: number,
 	LeashRange: number,
+	AssistRadius: number,
 	ExpReward: number,
 	TargetMode: TargetMode,
+	AggroMode: AggroMode,
 }
 
 local monsters: {[string]: MonsterData} = {
-	-- alias để world monster cũ tên "Slime" vẫn chạy AI nếu chưa gắn MonsterId
 	Slime = {
 		Id = "Slime",
 		Name = "Slime",
@@ -32,8 +34,10 @@ local monsters: {[string]: MonsterData} = {
 		AttackRange = 6,
 		ChaseRange = 40,
 		LeashRange = 55,
+		AssistRadius = 0,
 		ExpReward = 10,
 		TargetMode = "Nearest",
+		AggroMode = "PassiveCounter",
 	},
 
 	Slime_Lv1 = {
@@ -47,8 +51,10 @@ local monsters: {[string]: MonsterData} = {
 		AttackRange = 6,
 		ChaseRange = 40,
 		LeashRange = 55,
+		AssistRadius = 0,
 		ExpReward = 10,
 		TargetMode = "Nearest",
+		AggroMode = "PassiveCounter",
 	},
 
 	Slime_Lv5 = {
@@ -62,8 +68,10 @@ local monsters: {[string]: MonsterData} = {
 		AttackRange = 6,
 		ChaseRange = 45,
 		LeashRange = 60,
+		AssistRadius = 0,
 		ExpReward = 20,
 		TargetMode = "Nearest",
+		AggroMode = "PassiveCounter",
 	},
 
 	Wolf_Lv8 = {
@@ -77,8 +85,10 @@ local monsters: {[string]: MonsterData} = {
 		AttackRange = 6,
 		ChaseRange = 52,
 		LeashRange = 70,
+		AssistRadius = 12,
 		ExpReward = 30,
 		TargetMode = "Nearest",
+		AggroMode = "AutoAggro",
 	},
 }
 

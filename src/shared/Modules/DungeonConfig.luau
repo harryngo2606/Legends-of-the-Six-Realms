@@ -9,6 +9,7 @@ export type DungeonData = {
 	ExitSpawnName: string,
 	MonsterSpawnNames: {string},
 	MonsterTemplateName: string,
+	MonsterId: string,
 	MonsterCount: number,
 	MonsterSpreadRadius: number,
 	MonsterMinSpacing: number,
@@ -29,6 +30,7 @@ local dungeons: {[string]: DungeonData} = {
 
 		MonsterSpawnNames = {"MobSpawn_01", "MobSpawn_02"},
 		MonsterTemplateName = "Slime",
+		MonsterId = "Slime_Lv1",
 		MonsterCount = 5,
 		MonsterSpreadRadius = 12,
 		MonsterMinSpacing = 6,
@@ -38,7 +40,7 @@ local dungeons: {[string]: DungeonData} = {
 		BossId = "SlimeKing",
 		BossMonsterName = "SlimeKing",
 
-		ClearExpReward = 500,
+		ClearExpReward = 50,
 	},
 }
 
